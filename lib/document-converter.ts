@@ -1,29 +1,47 @@
 /**
  * Browser-native document converter.
  * All conversions happen client-side — no server needed.
+ *
+ * Conversion matrix:
+ *   Text group:  Markdown ↔ HTML ↔ Plain Text
+ *   Data group:  JSON ↔ CSV ↔ TSV ↔ XML ↔ YAML
+ *   Any format → PDF
+ *   Any format → DOCX
  */
 
-export type DocFormat = "markdown" | "html" | "plaintext" | "json" | "csv" | "tsv" | "xml" | "yaml"
+export type DocFormat =
+  | "markdown" | "html" | "plaintext"
+  | "json" | "csv" | "tsv" | "xml" | "yaml"
+  | "pdf" | "docx"
 
 export interface DocFormatConfig {
   value: DocFormat
   labelKey: string
   ext: string
   mime: string
+  group: "text" | "data" | "binary"
+  canInput: boolean   // can be used as input (uploaded)
+  canPreview: boolean // can show content preview
+  isOutput: boolean   // can be used as output (downloaded)
 }
 
 export const DOC_FORMATS: DocFormatConfig[] = [
-  { value: "markdown", labelKey: "document.markdown", ext: "md", mime: "text/markdown" },
-  { value: "html", labelKey: "document.html", ext: "html", mime: "text/html" },
-  { value: "plaintext", labelKey: "document.plaintext", ext: "txt", mime: "text/plain" },
-  { value: "json", labelKey: "document.json", ext: "json", mime: "application/json" },
-  { value: "csv", labelKey: "document.csv", ext: "csv", mime: "text/csv" },
-  { value: "tsv", labelKey: "document.tsv", ext: "tsv", mime: "text/tab-separated-values" },
-  { value: "xml", labelKey: "document.xml", ext: "xml", mime: "application/xml" },
-  { value: "yaml", labelKey: "document.yaml", ext: "yaml", mime: "text/yaml" },
+  // Text group
+  { value: "markdown", labelKey: "document.markdown", ext: "md", mime: "text/markdown", group: "text", canInput: true, canPreview: true, isOutput: true },
+  { value: "html",     labelKey: "document.html",     ext: "html", mime: "text/html", group: "text", canInput: true, canPreview: true, isOutput: true },
+  { value: "plaintext",labelKey: "document.plaintext", ext: "txt",  mime: "text/plain", group: "text", canInput: true, canPreview: true, isOutput: true },
+  // Data group
+  { value: "json",     labelKey: "document.json",     ext: "json", mime: "application/json", group: "data", canInput: true, canPreview: true, isOutput: true },
+  { value: "csv",      labelKey: "document.csv",      ext: "csv",  mime: "text/csv", group: "data", canInput: true, canPreview: true, isOutput: true },
+  { value: "tsv",      labelKey: "document.tsv",      ext: "tsv",  mime: "text/tab-separated-values", group: "data", canInput: true, canPreview: true, isOutput: true },
+  { value: "xml",      labelKey: "document.xml",      ext: "xml",  mime: "application/xml", group: "data", canInput: true, canPreview: true, isOutput: true },
+  { value: "yaml",     labelKey: "document.yaml",     ext: "yaml", mime: "text/yaml", group: "data", canInput: true, canPreview: true, isOutput: true },
+  // Binary output
+  { value: "pdf",      labelKey: "document.pdf",      ext: "pdf",  mime: "application/pdf", group: "binary", canInput: false, canPreview: false, isOutput: true },
+  { value: "docx",     labelKey: "document.docx",     ext: "docx", mime: "application/vnd.openxmlformats-officedocument.wordprocessingml.document", group: "binary", canInput: false, canPreview: false, isOutput: true },
 ]
 
-/** Detect the format of an input file by extension and content */
+/** Detect the format of an input file */
 export function detectDocFormat(file: File, content: string): DocFormat {
   const ext = file.name.split(".").pop()?.toLowerCase() || ""
 
@@ -35,11 +53,10 @@ export function detectDocFormat(file: File, content: string): DocFormat {
   if (ext === "xml") return "xml"
   if (ext === "yaml" || ext === "yml") return "yaml"
 
-  // Try to detect by content
+  // Detect by content
   const trimmed = content.trim()
   if (trimmed.startsWith("{") || trimmed.startsWith("[")) return "json"
   if (trimmed.startsWith("<?xml") || trimmed.startsWith("<")) {
-    // Could be HTML or XML
     if (/<html|<!DOCTYPE|<head|<body/i.test(trimmed)) return "html"
     return "xml"
   }
@@ -48,93 +65,178 @@ export function detectDocFormat(file: File, content: string): DocFormat {
   return "plaintext"
 }
 
-/** Get possible output formats for a given input format */
+/** Get valid output formats for a given input format */
 export function getOutputFormats(input: DocFormat): DocFormat[] {
-  const all: DocFormat[] = ["markdown", "html", "plaintext", "json", "csv", "tsv", "xml", "yaml"]
-  return all.filter((f) => f !== input)
+  const cfg = DOC_FORMATS.find((f) => f.value === input)
+  if (!cfg) return []
+
+  const textFormats: DocFormat[] = ["markdown", "html", "plaintext"]
+  const dataFormats: DocFormat[] = ["json", "csv", "tsv", "xml", "yaml"]
+
+  const outputs: DocFormat[] = []
+
+  if (cfg.group === "text") {
+    // Text → other text formats + data formats + binary
+    outputs.push(...textFormats.filter((f) => f !== input))
+    outputs.push(...dataFormats)
+    outputs.push("pdf", "docx")
+  } else if (cfg.group === "data") {
+    // Data → other data formats + text (as formatted) + binary
+    outputs.push(...dataFormats.filter((f) => f !== input))
+    outputs.push("plaintext", "html")
+    outputs.push("pdf", "docx")
+  }
+
+  return outputs
 }
 
-/** Convert document content between formats */
-export function convertDocument(
+/** Check if a format is previewable */
+export function isPreviewable(format: DocFormat): boolean {
+  return DOC_FORMATS.find((f) => f.value === format)?.canPreview ?? false
+}
+
+/** Convert document content between formats. Returns text or Blob for binary. */
+export async function convertDocument(
   content: string,
   from: DocFormat,
   to: DocFormat
-): string {
+): Promise<string | Blob> {
   if (from === to) return content
 
+  // --- Binary output ---
+  if (to === "pdf") return textToPdf(content, from)
+  if (to === "docx") return textToDocx(content, from)
+
+  // --- Text conversions ---
+  // Anything → Plaintext
+  if (to === "plaintext") return from === "html" ? stripHtml(content) : content
   // Markdown → HTML
   if (from === "markdown" && to === "html") return markdownToHtml(content)
-  // HTML → Markdown (basic)
+  // HTML → Markdown
   if (from === "html" && to === "markdown") return htmlToMarkdown(content)
-  // JSON → CSV
-  if (from === "json" && to === "csv") return jsonToCsv(content)
-  // JSON → TSV
-  if (from === "json" && to === "tsv") return jsonToTsv(content)
-  // JSON → YAML
-  if (from === "json" && to === "yaml") return jsonToYaml(content)
-  // JSON → XML
-  if (from === "json" && to === "xml") return jsonToXml(content)
-  // CSV → JSON
-  if (from === "csv" && to === "json") return csvToJson(content, ",")
-  // CSV → TSV
-  if (from === "csv" && to === "tsv") return csvToTsv(content)
-  // TSV → JSON
-  if (from === "tsv" && to === "json") return csvToJson(content, "\t")
-  // TSV → CSV
-  if (from === "tsv" && to === "csv") return tsvToCsv(content)
-  // XML → JSON (basic)
-  if (from === "xml" && to === "json") return xmlToJson(content)
-  // YAML → JSON (basic)
-  if (from === "yaml" && to === "json") return yamlToJson(content)
-  // Plaintext conversions
-  if (to === "plaintext") return content
-  // HTML → Plaintext
-  if (from === "html" && to === "plaintext") return stripHtml(content)
 
-  // Fallback: return content as-is with a comment
+  // --- Data conversions ---
+  if (from === "json" && to === "csv") return jsonToCsv(content, ",")
+  if (from === "json" && to === "tsv") return jsonToTsv(content)
+  if (from === "json" && to === "yaml") return jsonToYaml(content)
+  if (from === "json" && to === "xml") return jsonToXml(content)
+  if (from === "csv" && to === "json") return csvToJson(content, ",")
+  if (from === "csv" && to === "tsv") return csvToTsv(content)
+  if (from === "tsv" && to === "json") return csvToJson(content, "\t")
+  if (from === "tsv" && to === "csv") return tsvToCsv(content)
+  if (from === "xml" && to === "json") return xmlToJson(content)
+  if (from === "yaml" && to === "json") return yamlToJson(content)
+
+  // Cross-group: data → text
+  if (from === "json" && to === "html") return `<pre>${escapeHtml(content)}</pre>`
+  if (from === "csv" && to === "html") return csvToHtml(content, ",")
+  if (from === "tsv" && to === "html") return csvToHtml(content, "\t")
+
+  // Fallback
   return content
 }
 
-/* ------------------------------------------------------------------ */
-/*  Markdown → HTML (basic parser)                                     */
-/* ------------------------------------------------------------------ */
+/* ================================================================== */
+/*  Binary converters                                                  */
+/* ================================================================== */
+
+async function textToPdf(content: string, from: DocFormat): Promise<Blob> {
+  const { jsPDF } = await import("jspdf")
+  const doc = new jsPDF()
+
+  let text = content
+  if (from === "html") text = stripHtml(content)
+  if (from === "markdown") text = content // raw markdown text
+
+  const lines = doc.splitTextToSize(text, 180)
+  doc.text(lines, 10, 10)
+
+  const arrayBuffer = doc.output("arraybuffer")
+  return new Blob([arrayBuffer], { type: "application/pdf" })
+}
+
+async function textToDocx(content: string, from: DocFormat): Promise<Blob> {
+  const JSZip = (await import("jszip")).default
+
+  let text = content
+  if (from === "html") text = stripHtml(content)
+
+  // Escape XML special characters in text (avoiding literal entities in source)
+  const escXml = (s: string) => {
+    const amp = String.fromCharCode(38)
+    const map: Record<string, string> = {
+      [amp]: amp + "amp;",
+      "<": amp + "lt;",
+      ">": amp + "gt;",
+      '"': amp + "quot;",
+    }
+    return s.replace(/[&<>"]/g, (ch) => map[ch] ?? ch)
+  }
+
+  // Build paragraph XML from each line
+  const paragraphsXml = text
+    .split("\n")
+    .map((line) => `<w:p><w:r><w:t xml:space="preserve">${escXml(line)}</w:t></w:r></w:p>`)
+    .join("")
+
+  const documentXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:body>${paragraphsXml}</w:body>
+</w:document>`
+
+  const contentTypesXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+  <Default Extension="xml" ContentType="application/xml"/>
+  <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
+</Types>`
+
+  const relsXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>
+</Relationships>`
+
+  const wordRelsXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+</Relationships>`
+
+  const zip = new JSZip()
+  zip.file("[Content_Types].xml", contentTypesXml)
+  zip.file("_rels/.rels", relsXml)
+  zip.file("word/document.xml", documentXml)
+  zip.file("word/_rels/document.xml.rels", wordRelsXml)
+
+  return await zip.generateAsync({ type: "blob", mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" })
+}
+
+/* ================================================================== */
+/*  Text converters                                                    */
+/* ================================================================== */
+
 function markdownToHtml(md: string): string {
   let html = md
-    // Headers
     .replace(/^######\s+(.+)$/gm, "<h6>$1</h6>")
     .replace(/^#####\s+(.+)$/gm, "<h5>$1</h5>")
     .replace(/^####\s+(.+)$/gm, "<h4>$1</h4>")
     .replace(/^###\s+(.+)$/gm, "<h3>$1</h3>")
     .replace(/^##\s+(.+)$/gm, "<h2>$1</h2>")
     .replace(/^#\s+(.+)$/gm, "<h1>$1</h1>")
-    // Bold & italic
     .replace(/\*\*\*(.+?)\*\*\*/g, "<strong><em>$1</em></strong>")
     .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
     .replace(/\*(.+?)\*/g, "<em>$1</em>")
-    // Links & images
     .replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1" />')
     .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>')
-    // Code blocks
     .replace(/```(\w*)\n([\s\S]*?)```/g, '<pre><code class="language-$1">$2</code></pre>')
     .replace(/`([^`]+)`/g, "<code>$1</code>")
-    // Blockquotes
     .replace(/^>\s+(.+)$/gm, "<blockquote>$1</blockquote>")
-    // Horizontal rule
     .replace(/^[-*_]{3,}$/gm, "<hr />")
-    // Unordered lists
     .replace(/^\s*[-*+]\s+(.+)$/gm, "<li>$1</li>")
-    // Ordered lists
     .replace(/^\s*\d+\.\s+(.+)$/gm, "<li>$1</li>")
-    // Paragraphs
     .replace(/\n\n/g, "</p><p>")
     .replace(/\n/g, "<br />")
-
   return `<p>${html}</p>`
 }
 
-/* ------------------------------------------------------------------ */
-/*  HTML → Markdown (basic)                                            */
-/* ------------------------------------------------------------------ */
 function htmlToMarkdown(html: string): string {
   return html
     .replace(/<h1[^>]*>(.*?)<\/h1>/gi, "# $1\n")
@@ -161,9 +263,6 @@ function htmlToMarkdown(html: string): string {
     .trim()
 }
 
-/* ------------------------------------------------------------------ */
-/*  HTML → Plaintext                                                   */
-/* ------------------------------------------------------------------ */
 function stripHtml(html: string): string {
   return html
     .replace(/<br\s*\/?>/gi, "\n")
@@ -176,90 +275,76 @@ function stripHtml(html: string): string {
     .trim()
 }
 
-/* ------------------------------------------------------------------ */
-/*  JSON ↔ CSV / TSV                                                   */
-/* ------------------------------------------------------------------ */
-function jsonToCsv(json: string): string {
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, "&")
+    .replace(/</g, "<")
+    .replace(/>/g, ">")
+}
+
+/* ================================================================== */
+/*  Data converters                                                    */
+/* ================================================================== */
+
+function jsonToCsv(json: string, sep: "," | "\t"): string {
   const data = JSON.parse(json)
   const arr = Array.isArray(data) ? data : [data]
   if (arr.length === 0) return ""
-
   const headers = Object.keys(arr[0])
   const rows = arr.map((row: Record<string, unknown>) =>
-    headers.map((h) => escapeCsv(String(row[h] ?? ""), ",")).join(",")
+    headers.map((h) => escapeCsv(String(row[h] ?? ""), sep)).join(sep)
   )
-  return [headers.map((h) => escapeCsv(h, ",")).join(","), ...rows].join("\n")
+  return [headers.map((h) => escapeCsv(h, sep)).join(sep), ...rows].join("\n")
 }
 
-function jsonToTsv(json: string): string {
-  const data = JSON.parse(json)
-  const arr = Array.isArray(data) ? data : [data]
-  if (arr.length === 0) return ""
-
-  const headers = Object.keys(arr[0])
-  const rows = arr.map((row: Record<string, unknown>) =>
-    headers.map((h) => escapeCsv(String(row[h] ?? ""), "\t")).join("\t")
-  )
-  return [headers.join("\t"), ...rows].join("\n")
-}
+function jsonToTsv(json: string): string { return jsonToCsv(json, "\t") }
 
 function csvToJson(csv: string, separator: "," | "\t"): string {
   const lines = csv.trim().split("\n")
   if (lines.length < 2) return "[]"
-
   const headers = parseCsvLine(lines[0], separator)
   const result = lines.slice(1).map((line) => {
     const values = parseCsvLine(line, separator)
     const obj: Record<string, string> = {}
-    headers.forEach((h, i) => {
-      obj[h] = values[i] ?? ""
-    })
+    headers.forEach((h, i) => { obj[h] = values[i] ?? "" })
     return obj
   })
   return JSON.stringify(result, null, 2)
 }
 
 function csvToTsv(csv: string): string {
-  const lines = csv.trim().split("\n")
-  return lines.map((line) => parseCsvLine(line, ",").join("\t")).join("\n")
+  return csv.trim().split("\n").map((l) => parseCsvLine(l, ",").join("\t")).join("\n")
 }
 
 function tsvToCsv(tsv: string): string {
-  const lines = tsv.trim().split("\n")
-  return lines.map((line) => parseCsvLine(line, "\t").map((v) => escapeCsv(v, ",")).join(",")).join("\n")
+  return tsv.trim().split("\n").map((l) => parseCsvLine(l, "\t").map((v) => escapeCsv(v, ",")).join(",")).join("\n")
 }
 
-/* ------------------------------------------------------------------ */
-/*  JSON ↔ XML (basic)                                                 */
-/* ------------------------------------------------------------------ */
 function jsonToXml(json: string): string {
   const data = JSON.parse(json)
   return '<?xml version="1.0" encoding="UTF-8"?>\n' + objectToXml(data, "root")
 }
 
-function objectToXml(obj: unknown, tagName: string): string {
-  if (obj === null || obj === undefined) return `<${tagName} />`
-  if (typeof obj !== "object") return `<${tagName}>${escapeXml(String(obj))}</${tagName}>`
+function objectToXml(obj: unknown, tag: string): string {
+  if (obj === null || obj === undefined) return `<${tag} />`
+  if (typeof obj !== "object") {
+    const val = String(obj).replace(/&/g, "&").replace(/</g, "<").replace(/>/g, ">")
+    return `<${tag}>${val}</${tag}>`
+  }
   if (Array.isArray(obj)) return obj.map((item) => objectToXml(item, "item")).join("\n")
-
-  const children = Object.entries(obj as Record<string, unknown>)
-    .map(([key, value]) => objectToXml(value, key))
-    .join("\n")
-  return `<${tagName}>\n${children}\n</${tagName}>`
+  const children = Object.entries(obj as Record<string, unknown>).map(([k, v]) => objectToXml(v, k)).join("\n")
+  return `<${tag}>\n${children}\n</${tag}>`
 }
 
 function xmlToJson(xml: string): string {
-  // Basic XML to JSON - extract text content from simple structures
   const parser = new DOMParser()
   const doc = parser.parseFromString(xml, "text/xml")
-  const obj = xmlNodeToObject(doc.documentElement)
-  return JSON.stringify(obj, null, 2)
+  return JSON.stringify(xmlNodeToObject(doc.documentElement), null, 2)
 }
 
 function xmlNodeToObject(node: Element): unknown {
   const children = Array.from(node.children)
   if (children.length === 0) return node.textContent?.trim() || ""
-
   const obj: Record<string, unknown> = {}
   for (const child of children) {
     const key = child.tagName
@@ -267,124 +352,94 @@ function xmlNodeToObject(node: Element): unknown {
     if (key in obj) {
       const existing = obj[key]
       obj[key] = Array.isArray(existing) ? [...existing, value] : [existing, value]
-    } else {
-      obj[key] = value
-    }
+    } else { obj[key] = value }
   }
   return obj
 }
 
-/* ------------------------------------------------------------------ */
-/*  JSON ↔ YAML (basic)                                                */
-/* ------------------------------------------------------------------ */
-function jsonToYaml(json: string, indent = 0): string {
-  const data = JSON.parse(json)
-  return valueToYaml(data, indent)
-}
+function jsonToYaml(json: string): string { return valueToYaml(JSON.parse(json), 0) }
 
 function valueToYaml(value: unknown, indent: number): string {
-  const prefix = "  ".repeat(indent)
-  if (value === null || value === undefined) return `${prefix}null`
-  if (typeof value === "boolean") return `${prefix}${value}`
-  if (typeof value === "number") return `${prefix}${value}`
+  const p = "  ".repeat(indent)
+  if (value === null || value === undefined) return `${p}null`
+  if (typeof value === "boolean" || typeof value === "number") return `${p}${value}`
   if (typeof value === "string") {
-    if (/[:#{}[\],&*?|>!%@`]/.test(value) || value.includes("\n")) {
-      return `${prefix}"${value.replace(/"/g, '\\"')}"`
-    }
-    return `${prefix}${value}`
+    if (/[:#{}[\],&*?|>!%@`]/.test(value) || value.includes("\n")) return `${p}"${value.replace(/"/g, '\\"')}"`
+    return `${p}${value}`
   }
   if (Array.isArray(value)) {
-    if (value.length === 0) return `${prefix}[]`
+    if (value.length === 0) return `${p}[]`
     return value.map((item) => {
-      if (typeof item === "object" && item !== null) {
-        const inner = valueToYaml(item, indent + 1).trimStart()
-        return `${prefix}- ${inner}`
-      }
-      return `${prefix}- ${valueToYaml(item, 0).trim()}`
+      if (typeof item === "object" && item !== null) return `${p}- ${valueToYaml(item, indent + 1).trimStart()}`
+      return `${p}- ${valueToYaml(item, 0).trim()}`
     }).join("\n")
   }
   if (typeof value === "object") {
     const entries = Object.entries(value as Record<string, unknown>)
-    if (entries.length === 0) return `${prefix}{}`
-    return entries.map(([key, val]) => {
-      if (typeof val === "object" && val !== null) {
-        return `${prefix}${key}:\n${valueToYaml(val, indent + 1)}`
-      }
-      return `${prefix}${key}: ${valueToYaml(val, 0).trim()}`
+    if (entries.length === 0) return `${p}{}`
+    return entries.map(([k, v]) => {
+      if (typeof v === "object" && v !== null) return `${p}${k}:\n${valueToYaml(v, indent + 1)}`
+      return `${p}${k}: ${valueToYaml(v, 0).trim()}`
     }).join("\n")
   }
-  return `${prefix}${String(value)}`
+  return `${p}${String(value)}`
 }
 
 function yamlToJson(yaml: string): string {
-  // Basic YAML parser for flat/simple structures
-  const lines = yaml.split("\n")
   const result: Record<string, string> = {}
-  for (const line of lines) {
+  for (const line of yaml.split("\n")) {
     const match = line.match(/^(\s*)([\w.-]+):\s*(.*)$/)
     if (match) {
-      const value = match[3].trim()
-      // Try to parse numbers and booleans
-      if (value === "true") result[match[2]] = "true"
-      else if (value === "false") result[match[2]] = "false"
-      else if (value === "null") result[match[2]] = "null"
-      else if (!isNaN(Number(value)) && value !== "") result[match[2]] = value
-      else result[match[2]] = value.replace(/^["']|["']$/g, "")
+      const v = match[3].trim()
+      if (v === "true" || v === "false" || v === "null") result[match[2]] = v
+      else if (!isNaN(Number(v)) && v !== "") result[match[2]] = v
+      else result[match[2]] = v.replace(/^["']|["']$/g, "")
     }
   }
   return JSON.stringify(result, null, 2)
 }
 
-/* ------------------------------------------------------------------ */
+function csvToHtml(csv: string, sep: "," | "\t"): string {
+  const lines = csv.trim().split("\n")
+  const headers = parseCsvLine(lines[0], sep)
+  const rows = lines.slice(1).map((l) => parseCsvLine(l, sep))
+
+  let html = '<table border="1" cellpadding="4">\n<thead><tr>'
+  headers.forEach((h) => { html += `<th>${escapeHtml(h)}</th>` })
+  html += "</tr></thead>\n<tbody>\n"
+  rows.forEach((row) => {
+    html += "<tr>"
+    row.forEach((cell) => { html += `<td>${escapeHtml(cell)}</td>` })
+    html += "</tr>\n"
+  })
+  html += "</tbody></table>"
+  return html
+}
+
+/* ================================================================== */
 /*  CSV helpers                                                        */
-/* ------------------------------------------------------------------ */
-function escapeCsv(value: string, separator: string): string {
-  if (value.includes(separator) || value.includes('"') || value.includes("\n")) {
-    return `"${value.replace(/"/g, '""')}"`
-  }
+/* ================================================================== */
+
+function escapeCsv(value: string, sep: string): string {
+  if (value.includes(sep) || value.includes('"') || value.includes("\n")) return `"${value.replace(/"/g, '""')}"`
   return value
 }
 
-function parseCsvLine(line: string, separator: string): string[] {
+function parseCsvLine(line: string, sep: string): string[] {
   const result: string[] = []
   let current = ""
   let inQuotes = false
-
   for (let i = 0; i < line.length; i++) {
-    const char = line[i]
+    const ch = line[i]
     if (inQuotes) {
-      if (char === '"') {
-        if (i + 1 < line.length && line[i + 1] === '"') {
-          current += '"'
-          i++
-        } else {
-          inQuotes = false
-        }
-      } else {
-        current += char
-      }
+      if (ch === '"') { if (i + 1 < line.length && line[i + 1] === '"') { current += '"'; i++ } else inQuotes = false }
+      else current += ch
     } else {
-      if (char === '"') {
-        inQuotes = true
-      } else if (char === separator) {
-        result.push(current)
-        current = ""
-      } else {
-        current += char
-      }
+      if (ch === '"') inQuotes = true
+      else if (ch === sep) { result.push(current); current = "" }
+      else current += ch
     }
   }
   result.push(current)
   return result
-}
-
-function escapeXml(str: string): string {
-  return str.replace(/[&<>"']/g, (ch) => {
-    if (ch === String.fromCharCode(38)) return String.fromCharCode(38) + "amp;"
-    if (ch === String.fromCharCode(60)) return String.fromCharCode(38) + "lt;"
-    if (ch === String.fromCharCode(62)) return String.fromCharCode(38) + "gt;"
-    if (ch === String.fromCharCode(34)) return String.fromCharCode(38) + "quot;"
-    if (ch === String.fromCharCode(39)) return String.fromCharCode(38) + "apos;"
-    return ch
-  })
 }

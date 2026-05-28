@@ -48,8 +48,15 @@
     "tsv": "TSV",
     "xml": "XML",
     "yaml": "YAML",
+    "pdf": "PDF",
+    "docx": "DOCX",
     "inputFormat": "Detected format",
-    "outputFormat": "Output format"
+    "outputFormat": "Output format",
+    "textGroup": "Text formats",
+    "dataGroup": "Data formats",
+    "binaryGroup": "Binary formats",
+    "binaryReady": "Binary file ready for download",
+    "cannotPreview": "cannot be previewed in browser"
   },
   "controls": {
     "outputFormat": "Output format",

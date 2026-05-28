@@ -48,8 +48,15 @@
     "tsv": "TSV",
     "xml": "XML",
     "yaml": "YAML",
+    "pdf": "PDF",
+    "docx": "DOCX",
     "inputFormat": "检测格式",
-    "outputFormat": "输出格式"
+    "outputFormat": "输出格式",
+    "textGroup": "文本格式",
+    "dataGroup": "数据格式",
+    "binaryGroup": "二进制格式",
+    "binaryReady": "二进制文件已准备好下载",
+    "cannotPreview": "无法在浏览器中预览"
   },
   "controls": {
     "outputFormat": "输出格式",

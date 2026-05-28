@@ -7,6 +7,7 @@ import {
   detectDocFormat,
   getOutputFormats,
   convertDocument,
+  isPreviewable,
 } from "@/lib/document-converter"
 
 const DOC_EXTENSIONS = /\.(md|markdown|html|htm|txt|json|csv|tsv|xml|yaml|yml|log|ini|cfg|conf)$/i
@@ -16,23 +17,32 @@ export function useDocConverter() {
   const [file, setFile] = useState<File | null>(null)
   const [content, setContent] = useState("")
   const [outputContent, setOutputContent] = useState("")
+  const [outputBlob, setOutputBlob] = useState<Blob | null>(null)
   const [inputFormat, setInputFormat] = useState<DocFormat>("plaintext")
   const [outputFormat, setOutputFormat] = useState<DocFormat>("json")
   const [converting, setConverting] = useState(false)
   const [error, setError] = useState("")
 
   const availableOutputs = getOutputFormats(inputFormat)
+  const outputIsBinary = !isPreviewable(outputFormat)
 
   const doConvert = useCallback(
-    (text: string, from: DocFormat, to: DocFormat) => {
+    async (text: string, from: DocFormat, to: DocFormat) => {
       setConverting(true)
       setError("")
+      setOutputContent("")
+      setOutputBlob(null)
       try {
-        const result = convertDocument(text, from, to)
-        setOutputContent(result)
+        const result = await convertDocument(text, from, to)
+        if (result instanceof Blob) {
+          setOutputBlob(result)
+          setOutputContent("")
+        } else {
+          setOutputContent(result)
+          setOutputBlob(null)
+        }
       } catch (e) {
         setError(e instanceof Error ? e.message : "Conversion failed")
-        setOutputContent("")
       } finally {
         setConverting(false)
       }
@@ -45,7 +55,8 @@ export function useDocConverter() {
       const isDoc =
         DOC_MIMES.test(f.type) ||
         DOC_EXTENSIONS.test(f.name) ||
-        f.type === "" // some text files have empty type
+        f.type === ""
+
       if (!isDoc) {
         setError("Please select a document file")
         return
@@ -61,12 +72,11 @@ export function useDocConverter() {
         const detected = detectDocFormat(f, text)
         setInputFormat(detected)
 
-        // Pick first available output format
         const outputs = getOutputFormats(detected)
         const firstOutput = outputs[0] || "plaintext"
         setOutputFormat(firstOutput)
 
-        doConvert(text, detected, firstOutput)
+        await doConvert(text, detected, firstOutput)
       } catch (e) {
         setError(e instanceof Error ? e.message : "Failed to read file")
       }
@@ -75,31 +85,42 @@ export function useDocConverter() {
   )
 
   const changeOutputFormat = useCallback(
-    (fmt: DocFormat) => {
+    async (fmt: DocFormat) => {
       setOutputFormat(fmt)
-      if (content) doConvert(content, inputFormat, fmt)
+      if (content) await doConvert(content, inputFormat, fmt)
     },
     [content, inputFormat, doConvert]
   )
 
   const download = useCallback(() => {
-    if (!outputContent || !file) return
+    if (!file) return
+
     const fmtConfig = DOC_FORMATS.find((f) => f.value === outputFormat)
     const ext = fmtConfig?.ext || "txt"
     const mime = fmtConfig?.mime || "text/plain"
-    const blob = new Blob([outputContent], { type: mime })
+
+    let blob: Blob
+    if (outputBlob) {
+      blob = outputBlob
+    } else if (outputContent) {
+      blob = new Blob([outputContent], { type: mime })
+    } else {
+      return
+    }
+
     const url = URL.createObjectURL(blob)
     const a = document.createElement("a")
     a.href = url
     a.download = `${file.name.replace(/\.[^.]+$/, "")}.${ext}`
     a.click()
     URL.revokeObjectURL(url)
-  }, [outputContent, file, outputFormat])
+  }, [outputContent, outputBlob, file, outputFormat])
 
   const reset = useCallback(() => {
     setFile(null)
     setContent("")
     setOutputContent("")
+    setOutputBlob(null)
     setInputFormat("plaintext")
     setOutputFormat("json")
     setError("")
@@ -112,11 +133,13 @@ export function useDocConverter() {
     file,
     content,
     outputContent,
+    outputBlob,
     inputFormat,
     outputFormat,
     converting,
     error,
     availableOutputs,
+    outputIsBinary,
     inputFormatConfig,
     outputFormatConfig,
     loadFile,

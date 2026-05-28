@@ -1,0 +1,69 @@
+{
+  "seo": {
+    "title": "LocalConvert — 免费文件转换器，100% 隐私",
+    "description": "在浏览器中直接转换图片和文档。无需上传，无需服务器，完全私密。"
+  },
+  "nav": {
+    "image": "图片转换",
+    "document": "文档转换",
+    "toggleTheme": "切换主题",
+    "viewOnGitHub": "在 GitHub 上查看"
+  },
+  "footer": {
+    "tagline": "文件不离开浏览器 · 无需注册 · 永久免费"
+  },
+  "dropzone": {
+    "title": "拖放文件到这里",
+    "subtitle": "或点击浏览文件",
+    "privacy": "文件在本地处理 — 不会上传到任何服务器",
+    "invalidFile": "请选择一个有效的文件",
+    "invalidImage": "请选择一个图片文件",
+    "invalidDocument": "请选择一个文档文件"
+  },
+  "image": {
+    "title": "图片转换",
+    "outputFormat": "输出格式",
+    "avifUnsupported": "此浏览器不支持 AVIF",
+    "quality": "质量",
+    "download": "下载 {format}",
+    "conversionFailed": "转换失败",
+    "converting": "转换中…",
+    "convertAnother": "转换另一张图片",
+    "dropToReplace": "拖放以替换图片",
+    "notPreviewable": "此格式无法预览"
+  },
+  "document": {
+    "title": "文档转换",
+    "convertTo": "转换为",
+    "download": "下载 {format}",
+    "conversionFailed": "转换失败",
+    "converting": "转换中…",
+    "convertAnother": "转换另一个文档",
+    "dropToReplace": "拖放以替换文档",
+    "markdown": "Markdown",
+    "html": "HTML",
+    "plaintext": "纯文本",
+    "json": "JSON",
+    "csv": "CSV",
+    "tsv": "TSV",
+    "xml": "XML",
+    "yaml": "YAML",
+    "inputFormat": "检测格式",
+    "outputFormat": "输出格式"
+  },
+  "controls": {
+    "outputFormat": "输出格式",
+    "avifUnsupported": "此浏览器不支持 AVIF",
+    "quality": "质量",
+    "download": "下载 {format}",
+    "conversionFailed": "转换失败"
+  },
+  "preview": {
+    "converting": "转换中…",
+    "notPreviewable": "此格式无法预览"
+  },
+  "page": {
+    "convertAnother": "转换另一张图片",
+    "dropToReplace": "拖放以替换图片"
+  }
+}

@@ -1,0 +1,69 @@
+{
+  "seo": {
+    "title": "LocalConvert — Free file converter, 100% private",
+    "description": "Convert images and documents directly in your browser. No uploads, no servers, completely private."
+  },
+  "nav": {
+    "image": "Image",
+    "document": "Document",
+    "toggleTheme": "Toggle theme",
+    "viewOnGitHub": "View on GitHub"
+  },
+  "footer": {
+    "tagline": "Files never leave your browser · No account needed · Free forever"
+  },
+  "dropzone": {
+    "title": "Drop your file here",
+    "subtitle": "or click to browse files",
+    "privacy": "Files are processed locally — never uploaded to any server",
+    "invalidFile": "Please select a valid file",
+    "invalidImage": "Please select an image file",
+    "invalidDocument": "Please select a document file"
+  },
+  "image": {
+    "title": "Image Converter",
+    "outputFormat": "Output format",
+    "avifUnsupported": "AVIF not supported in this browser",
+    "quality": "Quality",
+    "download": "Download {format}",
+    "conversionFailed": "Conversion failed",
+    "converting": "Converting…",
+    "convertAnother": "Convert another image",
+    "dropToReplace": "Drop to replace image",
+    "notPreviewable": "Preview not available for this format"
+  },
+  "document": {
+    "title": "Document Converter",
+    "convertTo": "Convert to",
+    "download": "Download {format}",
+    "conversionFailed": "Conversion failed",
+    "converting": "Converting…",
+    "convertAnother": "Convert another document",
+    "dropToReplace": "Drop to replace document",
+    "markdown": "Markdown",
+    "html": "HTML",
+    "plaintext": "Plain Text",
+    "json": "JSON",
+    "csv": "CSV",
+    "tsv": "TSV",
+    "xml": "XML",
+    "yaml": "YAML",
+    "inputFormat": "Detected format",
+    "outputFormat": "Output format"
+  },
+  "controls": {
+    "outputFormat": "Output format",
+    "avifUnsupported": "AVIF not supported in this browser",
+    "quality": "Quality",
+    "download": "Download {format}",
+    "conversionFailed": "Conversion failed"
+  },
+  "preview": {
+    "converting": "Converting…",
+    "notPreviewable": "Preview not available for this format"
+  },
+  "page": {
+    "convertAnother": "Convert another image",
+    "dropToReplace": "Drop to replace image"
+  }
+}

@@ -4,36 +4,55 @@ import { useRef, useState, useCallback } from "react"
 import { Upload } from "lucide-react"
 import { useI18n } from "@/lib/i18n-context"
 
-const INPUT_FORMATS = ["JPEG", "PNG", "WebP", "AVIF", "HEIC", "GIF", "BMP", "SVG"]
+type DropZoneMode = "image" | "document" | "video"
 
-/** MIME types / extensions that browsers may not set correctly */
-const IMAGE_EXTENSIONS = /\.(jpe?g|png|gif|bmp|svg|webp|avif|heic|heif|tiff?|ico)$/i
-const KNOWN_IMAGE_MIMES = /^image\//
+const MODE_CONFIG: Record<DropZoneMode, { formats: string[]; accept: string; mimeRe: RegExp; extRe: RegExp; invalidKey: string }> = {
+  image: {
+    formats: ["JPEG", "PNG", "WebP", "AVIF", "HEIC", "GIF", "BMP", "SVG"],
+    accept: "image/*,.heic,.heif,.tiff,.tif",
+    mimeRe: /^image\//,
+    extRe: /\.(jpe?g|png|gif|bmp|svg|webp|avif|heic|heif|tiff?|ico)$/i,
+    invalidKey: "dropzone.invalidImage",
+  },
+  document: {
+    formats: ["MD", "HTML", "TXT", "JSON", "CSV", "TSV", "XML", "YAML"],
+    accept: ".md,.markdown,.html,.htm,.txt,.text,.json,.csv,.tsv,.xml,.yaml,.yml",
+    mimeRe: /^(text\/|application\/json|application\/xml|application\/yaml)/,
+    extRe: /\.(md|markdown|html?|txt|text|json|csv|tsv|xml|ya?ml)$/i,
+    invalidKey: "dropzone.invalidDocument",
+  },
+  video: {
+    formats: ["MP4", "WebM", "MOV", "AVI", "MKV", "FLV", "GIF"],
+    accept: "video/*,.mkv,.flv,.avi,.mov,.wmv,.m4v,.3gp,.ogv",
+    mimeRe: /^video\//,
+    extRe: /\.(mp4|webm|mov|avi|mkv|flv|wmv|m4v|3gp|ogv|mts|ts)$/i,
+    invalidKey: "dropzone.invalidFile",
+  },
+}
 
 interface DropZoneProps {
   onFile: (file: File) => void
+  mode?: DropZoneMode
 }
 
-export function DropZone({ onFile }: DropZoneProps) {
+export function DropZone({ onFile, mode = "image" }: DropZoneProps) {
   const { t } = useI18n()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [dragOver, setDragOver] = useState(false)
   const [error, setError] = useState("")
+  const cfg = MODE_CONFIG[mode]
 
   const handleFile = useCallback(
     (f: File) => {
-      // Check MIME type first, then fall back to extension for formats
-      // browsers may not recognize (e.g. HEIC, TIFF)
-      const isImage =
-        KNOWN_IMAGE_MIMES.test(f.type) || IMAGE_EXTENSIONS.test(f.name)
-      if (!isImage) {
-        setError(t("dropzone.invalidFile"))
+      const isValid = cfg.mimeRe.test(f.type) || cfg.extRe.test(f.name)
+      if (!isValid) {
+        setError(t(cfg.invalidKey))
         return
       }
       setError("")
       onFile(f)
     },
-    [onFile, t]
+    [onFile, t, cfg]
   )
 
   const onDrop = useCallback(
@@ -90,7 +109,7 @@ export function DropZone({ onFile }: DropZoneProps) {
               </p>
             </div>
             <div className="flex flex-wrap justify-center gap-1.5">
-              {INPUT_FORMATS.map((fmt) => (
+              {cfg.formats.map((fmt) => (
                 <span
                   key={fmt}
                   className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground"
@@ -128,7 +147,7 @@ export function DropZone({ onFile }: DropZoneProps) {
         <input
           ref={fileInputRef}
           type="file"
-          accept="image/*,.heic,.heif,.tiff,.tif"
+          accept={cfg.accept}
           className="hidden"
           onChange={onFileChange}
         />

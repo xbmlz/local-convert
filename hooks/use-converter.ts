@@ -3,6 +3,7 @@ import {
   type OutputFormat,
   type CropArea,
   type ResizeOptions,
+  type RotateFlipOptions,
   type ImageTransformOptions,
   FORMAT_CONFIG,
   convertImage,
@@ -45,8 +46,16 @@ export function useConverter() {
   const [cropArea, setCropArea] = useState<CropArea | null>(null)
   const [cropRatio, setCropRatio] = useState<CropRatio>("free")
 
+  // Rotation / Flip state
+  const [rotation, setRotation] = useState<0 | 90 | 180 | 270>(0)
+  const [flipH, setFlipH] = useState(false)
+  const [flipV, setFlipV] = useState(false)
+
   // Crop overlay visibility
   const [showCropOverlay, setShowCropOverlay] = useState(false)
+
+  // Copy-to-clipboard state
+  const [copied, setCopied] = useState(false)
 
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const originalUrlRef = useRef("")
@@ -103,15 +112,42 @@ export function useConverter() {
       })()
     : true
 
+  // Rotation/Flip handlers
+  const handleRotateLeft = useCallback(() => {
+    setRotation((prev) => ((prev - 90 + 360) % 360) as 0 | 90 | 180 | 270)
+  }, [])
+
+  const handleRotateRight = useCallback(() => {
+    setRotation((prev) => ((prev + 90) % 360) as 0 | 90 | 180 | 270)
+  }, [])
+
+  const handleFlipHorizontal = useCallback(() => {
+    setFlipH((prev) => !prev)
+  }, [])
+
+  const handleFlipVertical = useCallback(() => {
+    setFlipV((prev) => !prev)
+  }, [])
+
+  const handleRotateFlipReset = useCallback(() => {
+    setRotation(0)
+    setFlipH(false)
+    setFlipV(false)
+  }, [])
+
+  const isTransformed = rotation !== 0 || flipH || flipV
+
   // Build transform options from current state
   const buildTransform = useCallback((): ImageTransformOptions | undefined => {
     const resize: ResizeOptions | undefined = resizeEnabled
       ? { width: resizeWidth, height: resizeHeight, mode: resizeMode, keepAspect }
       : undefined
     const crop = cropEnabled ? cropAreaRef.current ?? undefined : undefined
-    if (!resize && !crop) return undefined
-    return { resize, crop }
-  }, [resizeEnabled, resizeWidth, resizeHeight, resizeMode, keepAspect, cropEnabled])
+    const rotateFlip: RotateFlipOptions | undefined =
+      isTransformed ? { rotation, flipH, flipV } : undefined
+    if (!resize && !crop && !rotateFlip) return undefined
+    return { resize, crop, rotateFlip }
+  }, [resizeEnabled, resizeWidth, resizeHeight, resizeMode, keepAspect, cropEnabled, isTransformed, rotation, flipH, flipV])
 
   const doConvert = useCallback(async () => {
     const currentFile = fileRef.current
@@ -160,6 +196,12 @@ export function useConverter() {
     doConvert()
   }, [cropArea, cropEnabled]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Re-convert when rotation/flip changes
+  useEffect(() => {
+    if (!file || !isTransformed) return
+    doConvert()
+  }, [rotation, flipH, flipV]) // eslint-disable-line react-hooks/exhaustive-deps
+
   // Update resize dimensions when image loads
   const updateImageDimensions = useCallback(async (f: File) => {
     try {
@@ -196,6 +238,10 @@ export function useConverter() {
       setCropArea(null)
       setCropRatio("free")
       setShowCropOverlay(false)
+      setRotation(0)
+      setFlipH(false)
+      setFlipV(false)
+      setCopied(false)
       fileRef.current = f
       // Get image dimensions
       await updateImageDimensions(f)
@@ -277,6 +323,37 @@ export function useConverter() {
     setShowCropOverlay(false)
   }, [])
 
+  // Copy-to-clipboard
+  const copyToClipboard = useCallback(async () => {
+    if (!convertedUrl) return
+    try {
+      const res = await fetch(convertedUrl)
+      const blob = await res.blob()
+      // Re-encode to PNG for clipboard compatibility
+      const targetMime = "image/png"
+      let clipBlob: Blob
+      if (blob.type === targetMime) {
+        clipBlob = blob
+      } else {
+        const bmp = await createImageBitmap(blob)
+        const c = document.createElement("canvas")
+        c.width = bmp.width
+        c.height = bmp.height
+        c.getContext("2d")!.drawImage(bmp, 0, 0)
+        clipBlob = await new Promise<Blob>((resolve) =>
+          c.toBlob((b) => resolve(b!), targetMime)
+        )
+      }
+      await navigator.clipboard.write([
+        new ClipboardItem({ [targetMime]: clipBlob }),
+      ])
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch {
+      // Fallback: do nothing
+    }
+  }, [convertedUrl])
+
   const reset = useCallback(() => {
     if (originalUrlRef.current) URL.revokeObjectURL(originalUrlRef.current)
     if (convertedUrlRef.current) URL.revokeObjectURL(convertedUrlRef.current)
@@ -292,6 +369,10 @@ export function useConverter() {
     setCropArea(null)
     setCropRatio("free")
     setShowCropOverlay(false)
+    setRotation(0)
+    setFlipH(false)
+    setFlipV(false)
+    setCopied(false)
     setImageWidth(0)
     setImageHeight(0)
   }, [])
@@ -351,6 +432,19 @@ export function useConverter() {
     handleCropApply,
     handleCropCancel,
     handleCropReset,
+    // Rotation / Flip
+    rotation,
+    flipH,
+    flipV,
+    isTransformed,
+    handleRotateLeft,
+    handleRotateRight,
+    handleFlipHorizontal,
+    handleFlipVertical,
+    handleRotateFlipReset,
+    // Copy
+    copied,
+    copyToClipboard,
     // Actions
     setFormat,
     setQuality,

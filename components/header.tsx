@@ -9,6 +9,7 @@ import { useI18n } from "@/lib/i18n-context"
 const NAV_ITEMS = [
   { href: "/img", labelKey: "nav.image" },
   { href: "/doc", labelKey: "nav.document" },
+  { href: "/video", labelKey: "nav.video" },
 ] as const
 
 export function Header() {

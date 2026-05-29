@@ -6,6 +6,7 @@
   "nav": {
     "image": "Image",
     "document": "Document",
+    "video": "Video",
     "toggleTheme": "Toggle theme",
     "viewOnGitHub": "View on GitHub"
   },
@@ -84,6 +85,44 @@
     "apply": "Apply",
     "cancel": "Cancel",
     "reset": "Reset"
+  },
+  "transform": {
+    "rotateLeft": "Rotate left",
+    "rotateRight": "Rotate right",
+    "flipH": "Flip horizontal",
+    "flipV": "Flip vertical",
+    "reset": "Reset transform"
+  },
+  "clipboard": {
+    "copy": "Copy",
+    "copied": "Copied!"
+  },
+  "video": {
+    "title": "Video Converter",
+    "invalidFile": "Please select a valid video file",
+    "fileTooLarge": "File too large. Maximum size is {size}",
+    "maxSize": "Maximum file size: {size} (based on your device)",
+    "loadingFFmpeg": "Loading conversion engine…",
+    "ffmpegNotLoaded": "Conversion engine not loaded yet",
+    "loadEngine": "Load Engine",
+    "converting": "Converting…",
+    "startConvert": "Convert",
+    "quality": "Quality",
+    "qualityFast": "Fast",
+    "qualityBalanced": "Balanced",
+    "qualityHigh": "High",
+    "resolution": "Resolution",
+    "resolutionOriginal": "Original",
+    "resolution1080p": "1080p",
+    "resolution720p": "720p",
+    "resolution480p": "480p",
+    "resolution360p": "360p",
+    "conversionFailed": "Conversion failed",
+    "convertAnother": "Convert another video",
+    "dropToReplace": "Drop to replace video",
+    "noPreview": "No preview available",
+    "outputFormat": "Output format",
+    "download": "Download {format}"
   },
   "preview": {
     "converting": "Converting…",

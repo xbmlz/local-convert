@@ -47,6 +47,19 @@ export function ConverterPage() {
     handleCropApply,
     handleCropCancel,
     handleCropReset,
+    // Rotation / Flip
+    rotation,
+    flipH,
+    flipV,
+    isTransformed,
+    handleRotateLeft,
+    handleRotateRight,
+    handleFlipHorizontal,
+    handleFlipVertical,
+    handleRotateFlipReset,
+    // Copy
+    copied,
+    copyToClipboard,
     // Actions
     setFormat,
     setQuality,
@@ -139,6 +152,7 @@ export function ConverterPage() {
                   { value: "webp", ext: "webp" },
                   { value: "avif", ext: "avif" },
                   { value: "heic", ext: "heic" },
+                  { value: "ico", ext: "ico" },
                 ] as const
               ).find((f) => f.value === format)?.ext ?? "webp"
             }`
@@ -177,6 +191,19 @@ export function ConverterPage() {
         cropRatio={cropRatio}
         onCropClick={() => setShowCropOverlay(true)}
         onCropReset={handleCropReset}
+        // Rotation / Flip
+        rotation={rotation}
+        flipH={flipH}
+        flipV={flipV}
+        isTransformed={isTransformed}
+        onRotateLeft={handleRotateLeft}
+        onRotateRight={handleRotateRight}
+        onFlipH={handleFlipHorizontal}
+        onFlipV={handleFlipVertical}
+        onTransformReset={handleRotateFlipReset}
+        // Copy
+        copied={copied}
+        onCopy={copyToClipboard}
       />
 
       {/* Crop overlay */}

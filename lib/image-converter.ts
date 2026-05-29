@@ -1,4 +1,4 @@
-export type OutputFormat = "jpeg" | "png" | "webp" | "avif" | "heic"
+export type OutputFormat = "jpeg" | "png" | "webp" | "avif" | "heic" | "ico"
 
 export interface FormatConfig {
   value: OutputFormat
@@ -13,6 +13,7 @@ export const FORMAT_CONFIG: FormatConfig[] = [
   { value: "webp", label: "WebP", ext: "webp", lossy: true },
   { value: "avif", label: "AVIF", ext: "avif", lossy: true },
   { value: "heic", label: "HEIC", ext: "heic", lossy: true },
+  { value: "ico", label: "ICO", ext: "ico", lossy: false },
 ]
 
 function isHeicFile(file: File): boolean {
@@ -170,9 +171,16 @@ export interface ResizeOptions {
   keepAspect: boolean
 }
 
+export interface RotateFlipOptions {
+  rotation: 0 | 90 | 180 | 270
+  flipH: boolean
+  flipV: boolean
+}
+
 export interface ImageTransformOptions {
   resize?: ResizeOptions
   crop?: CropArea
+  rotateFlip?: RotateFlipOptions
 }
 
 export async function convertImage(
@@ -215,20 +223,39 @@ export async function convertImage(
     }
   }
 
-  // Ensure minimum dimensions
-  dw = Math.max(1, dw)
-  dh = Math.max(1, dh)
+  // Handle rotation: 90° and 270° swap dimensions
+  const rot = transform?.rotateFlip?.rotation ?? 0
+  const flipH = transform?.rotateFlip?.flipH ?? false
+  const flipV = transform?.rotateFlip?.flipV ?? false
+  const isRotated = rot === 90 || rot === 270
+
+  const finalW = isRotated ? dh : dw
+  const finalH = isRotated ? dw : dh
 
   const canvas = document.createElement("canvas")
-  canvas.width = dw
-  canvas.height = dh
+  canvas.width = finalW
+  canvas.height = finalH
   const ctx = canvas.getContext("2d")!
 
   if (format === "jpeg") {
     ctx.fillStyle = "#ffffff"
-    ctx.fillRect(0, 0, dw, dh)
+    ctx.fillRect(0, 0, finalW, finalH)
   }
-  ctx.drawImage(img, sx, sy, sw, sh, 0, 0, dw, dh)
+
+  // Apply transformations
+  ctx.save()
+  ctx.translate(finalW / 2, finalH / 2)
+  if (rot) ctx.rotate((rot * Math.PI) / 180)
+  if (flipH) ctx.scale(-1, 1)
+  if (flipV) ctx.scale(1, -1)
+  // Draw centered (after rotation, the "virtual" canvas is dw × dh)
+  ctx.drawImage(img, sx, sy, sw, sh, -dw / 2, -dh / 2, dw, dh)
+  ctx.restore()
+
+  // ICO format: manually encode from PNG data at multiple sizes
+  if (format === "ico") {
+    return canvasToIco(canvas)
+  }
 
   const mime = format === "jpeg" ? "image/jpeg" : `image/${format}`
   const q = format === "png" ? undefined : quality / 100
@@ -253,8 +280,86 @@ export async function getImageDimensions(
   return { width: img.naturalWidth, height: img.naturalHeight }
 }
 
+/**
+ * Convert a canvas to an ICO file blob.
+ * ICO format: ICONDIR header + PNG image data (multi-size: 16, 32, 48, 64, 128, 256).
+ */
+function canvasToIco(canvas: HTMLCanvasElement): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    // Generate PNG data at the source size (clamped to max 256x256 for ICO)
+    const sizes = [16, 32, 48, 64, 128, 256]
+    const srcW = Math.min(canvas.width, 256)
+    const srcH = Math.min(canvas.height, 256)
+
+    // Render each size to PNG
+    const pngPromises = sizes.map((size) => {
+      return new Promise<{ data: Uint8Array; size: number }>((res, rej) => {
+        const c = document.createElement("canvas")
+        c.width = size
+        c.height = size
+        const ctx = c.getContext("2d")!
+        // Draw source onto target size with smoothing
+        ctx.imageSmoothingEnabled = true
+        ctx.imageSmoothingQuality = "high"
+        ctx.drawImage(canvas, 0, 0, srcW, srcH, 0, 0, size, size)
+        c.toBlob((blob) => {
+          if (!blob) return rej(new Error("Failed to generate PNG for ICO"))
+          blob.arrayBuffer().then((buf) => {
+            res({ data: new Uint8Array(buf), size })
+          }).catch(rej)
+        }, "image/png")
+      })
+    })
+
+    Promise.all(pngPromises)
+      .then((pngs) => {
+        // ICO header: 6 bytes
+        //   2 bytes: reserved (0)
+        //   2 bytes: type (1 = ICO)
+        //   2 bytes: image count
+        // Per image: 16 bytes
+        //   1 byte: width (0 = 256)
+        //   1 byte: height (0 = 256)
+        //   1 byte: color palette (0)
+        //   1 byte: reserved (0)
+        //   2 bytes: color planes (1)
+        //   2 bytes: bits per pixel (32)
+        //   4 bytes: image data size
+        //   4 bytes: image data offset
+        const headerSize = 6 + pngs.length * 16
+        const totalSize = headerSize + pngs.reduce((s, p) => s + p.data.length, 0)
+        const buffer = new ArrayBuffer(totalSize)
+        const view = new DataView(buffer)
+        const bytes = new Uint8Array(buffer)
+
+        // ICONDIR header
+        view.setUint16(0, 0, true)           // reserved
+        view.setUint16(2, 1, true)           // type = ICO
+        view.setUint16(4, pngs.length, true) // image count
+
+        let offset = headerSize
+        pngs.forEach((png, i) => {
+          const entryOffset = 6 + i * 16
+          view.setUint8(entryOffset, png.size < 256 ? png.size : 0)     // width
+          view.setUint8(entryOffset + 1, png.size < 256 ? png.size : 0) // height
+          view.setUint8(entryOffset + 2, 0)   // color palette
+          view.setUint8(entryOffset + 3, 0)   // reserved
+          view.setUint16(entryOffset + 4, 1, true)  // color planes
+          view.setUint16(entryOffset + 6, 32, true) // bits per pixel
+          view.setUint32(entryOffset + 8, png.data.length, true) // data size
+          view.setUint32(entryOffset + 12, offset, true)          // data offset
+          bytes.set(png.data, offset)
+          offset += png.data.length
+        })
+
+        resolve(new Blob([buffer], { type: "image/x-icon" }))
+      })
+      .catch(reject)
+  })
+}
+
 export async function isFormatSupported(format: OutputFormat): Promise<boolean> {
-  if (format === "jpeg" || format === "png") return true
+  if (format === "jpeg" || format === "png" || format === "ico") return true
   return new Promise((resolve) => {
     const c = document.createElement("canvas")
     c.width = 1

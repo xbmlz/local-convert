@@ -6,6 +6,7 @@
   "nav": {
     "image": "图片转换",
     "document": "文档转换",
+    "video": "视频转换",
     "toggleTheme": "切换主题",
     "viewOnGitHub": "在 GitHub 上查看"
   },
@@ -84,6 +85,44 @@
     "apply": "应用",
     "cancel": "取消",
     "reset": "重置"
+  },
+  "transform": {
+    "rotateLeft": "向左旋转",
+    "rotateRight": "向右旋转",
+    "flipH": "水平翻转",
+    "flipV": "垂直翻转",
+    "reset": "重置变换"
+  },
+  "clipboard": {
+    "copy": "复制",
+    "copied": "已复制！"
+  },
+  "video": {
+    "title": "视频转换",
+    "invalidFile": "请选择一个有效的视频文件",
+    "fileTooLarge": "文件太大，最大支持 {size}",
+    "maxSize": "最大文件大小：{size}（根据您的设备自动适配）",
+    "loadingFFmpeg": "正在加载转换引擎…",
+    "ffmpegNotLoaded": "转换引擎尚未加载",
+    "loadEngine": "加载引擎",
+    "converting": "转换中…",
+    "startConvert": "开始转换",
+    "quality": "画质",
+    "qualityFast": "快速",
+    "qualityBalanced": "均衡",
+    "qualityHigh": "高清",
+    "resolution": "分辨率",
+    "resolutionOriginal": "原始",
+    "resolution1080p": "1080p",
+    "resolution720p": "720p",
+    "resolution480p": "480p",
+    "resolution360p": "360p",
+    "conversionFailed": "转换失败",
+    "convertAnother": "转换另一个视频",
+    "dropToReplace": "拖放以替换视频",
+    "noPreview": "暂无预览",
+    "outputFormat": "输出格式",
+    "download": "下载 {format}"
   },
   "preview": {
     "converting": "转换中…",

@@ -1,6 +1,6 @@
 "use client"
 
-import { Download, Crop, Maximize2, RotateCcw } from "lucide-react"
+import { Download, Copy, Check, Crop, Maximize2, RotateCcw, RotateCw, FlipHorizontal, FlipVertical } from "lucide-react"
 import type { OutputFormat } from "@/lib/image-converter"
 import { FORMAT_CONFIG } from "@/lib/image-converter"
 import type { CropRatio } from "@/hooks/use-converter"
@@ -35,6 +35,19 @@ interface ControlsBarProps {
   cropRatio: CropRatio
   onCropClick: () => void
   onCropReset: () => void
+  // Rotation / Flip
+  rotation: 0 | 90 | 180 | 270
+  flipH: boolean
+  flipV: boolean
+  isTransformed: boolean
+  onRotateLeft: () => void
+  onRotateRight: () => void
+  onFlipH: () => void
+  onFlipV: () => void
+  onTransformReset: () => void
+  // Copy
+  copied: boolean
+  onCopy: () => void
 }
 
 export function ControlsBar({
@@ -62,6 +75,17 @@ export function ControlsBar({
   cropEnabled,
   onCropClick,
   onCropReset,
+  rotation,
+  flipH,
+  flipV,
+  isTransformed,
+  onRotateLeft,
+  onRotateRight,
+  onFlipH,
+  onFlipV,
+  onTransformReset,
+  copied,
+  onCopy,
 }: ControlsBarProps) {
   const { t } = useI18n()
 
@@ -70,7 +94,7 @@ export function ControlsBar({
 
   return (
     <div className="bg-card rounded-xl border border-border p-5">
-      {/* Resize & Crop controls */}
+      {/* Resize / Crop / Rotate controls */}
       <div className="flex flex-col sm:flex-row gap-4 mb-5 pb-5 border-b border-border">
         {/* Resize section */}
         <div className="flex-1">
@@ -200,6 +224,66 @@ export function ControlsBar({
             )}
           </div>
         </div>
+
+        {/* Rotate / Flip section */}
+        <div className="flex-1">
+          <div className="flex items-center gap-2 mb-3">
+            <RotateCw className="size-4 text-muted-foreground" />
+            <span className="text-xs font-medium text-muted-foreground">
+              {t("transform.rotateLeft")}
+            </span>
+          </div>
+
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={onRotateLeft}
+              title={t("transform.rotateLeft")}
+              className="inline-flex items-center justify-center w-8 h-8 rounded-lg border border-border text-muted-foreground hover:text-foreground hover:border-primary transition-colors cursor-pointer"
+            >
+              <RotateCcw className="size-4" />
+            </button>
+            <button
+              onClick={onRotateRight}
+              title={t("transform.rotateRight")}
+              className="inline-flex items-center justify-center w-8 h-8 rounded-lg border border-border text-muted-foreground hover:text-foreground hover:border-primary transition-colors cursor-pointer"
+            >
+              <RotateCw className="size-4" />
+            </button>
+            <button
+              onClick={onFlipH}
+              title={t("transform.flipH")}
+              className={cn(
+                "inline-flex items-center justify-center w-8 h-8 rounded-lg border transition-colors cursor-pointer",
+                flipH
+                  ? "bg-primary text-primary-foreground border-primary"
+                  : "border-border text-muted-foreground hover:text-foreground hover:border-primary"
+              )}
+            >
+              <FlipHorizontal className="size-4" />
+            </button>
+            <button
+              onClick={onFlipV}
+              title={t("transform.flipV")}
+              className={cn(
+                "inline-flex items-center justify-center w-8 h-8 rounded-lg border transition-colors cursor-pointer",
+                flipV
+                  ? "bg-primary text-primary-foreground border-primary"
+                  : "border-border text-muted-foreground hover:text-foreground hover:border-primary"
+              )}
+            >
+              <FlipVertical className="size-4" />
+            </button>
+            {isTransformed && (
+              <button
+                onClick={onTransformReset}
+                title={t("transform.reset")}
+                className="inline-flex items-center justify-center w-8 h-8 rounded-lg border border-border text-muted-foreground hover:text-foreground hover:border-primary transition-colors cursor-pointer"
+              >
+                <RotateCcw className="size-3" />
+              </button>
+            )}
+          </div>
+        </div>
       </div>
 
       {/* Format / Quality / Download */}
@@ -253,18 +337,33 @@ export function ControlsBar({
           </div>
         )}
 
-        {/* Download */}
-        <button
-          disabled={!convertedUrl || converting}
-          className={cn(
-            "inline-flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all shrink-0 cursor-pointer",
-            "bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
-          )}
-          onClick={onDownload}
-        >
-          <Download className="size-4" />
-          {t("controls.download").replace("{format}", currentFmt.label)}
-        </button>
+        {/* Copy & Download */}
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            disabled={!convertedUrl || converting}
+            className={cn(
+              "inline-flex items-center gap-1.5 px-3 py-2.5 rounded-lg text-sm font-medium transition-all cursor-pointer",
+              copied
+                ? "bg-green-500 text-white"
+                : "bg-card text-foreground border border-border hover:border-primary hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed"
+            )}
+            onClick={onCopy}
+          >
+            {copied ? <Check className="size-4" /> : <Copy className="size-4" />}
+            {copied ? t("clipboard.copied") : t("clipboard.copy")}
+          </button>
+          <button
+            disabled={!convertedUrl || converting}
+            className={cn(
+              "inline-flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all cursor-pointer",
+              "bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
+            )}
+            onClick={onDownload}
+          >
+            <Download className="size-4" />
+            {t("controls.download").replace("{format}", currentFmt.label)}
+          </button>
+        </div>
       </div>
 
       {error && <p className="text-red-500 text-sm mt-3">{error}</p>}

@@ -64,8 +64,8 @@ describe("formatBytes", () => {
 /*  FORMAT_CONFIG                                                      */
 /* ================================================================== */
 describe("FORMAT_CONFIG", () => {
-  it("contains exactly 5 formats", () => {
-    expect(FORMAT_CONFIG).toHaveLength(5)
+  it("contains exactly 6 formats", () => {
+    expect(FORMAT_CONFIG).toHaveLength(6)
   })
 
   it.each([
@@ -87,12 +87,13 @@ describe("FORMAT_CONFIG", () => {
 
   it("only PNG is lossless", () => {
     const lossless = FORMAT_CONFIG.filter((f) => !f.lossy)
-    expect(lossless).toHaveLength(1)
-    expect(lossless[0].value).toBe("png")
+    expect(lossless).toHaveLength(2)
+    expect(lossless.map((f) => f.value)).toContain("png")
+    expect(lossless.map((f) => f.value)).toContain("ico")
   })
 
   it("all values are valid OutputFormat types", () => {
-    const validFormats: OutputFormat[] = ["jpeg", "png", "webp", "avif", "heic"]
+    const validFormats: OutputFormat[] = ["jpeg", "png", "webp", "avif", "heic", "ico"]
     for (const cfg of FORMAT_CONFIG) {
       expect(validFormats).toContain(cfg.value)
     }

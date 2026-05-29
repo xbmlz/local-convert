@@ -33,6 +33,11 @@ function createFakeCtx(width: number, height: number) {
     fillStyle: "",
     drawImage: vi.fn(),
     fillRect: vi.fn(),
+    save: vi.fn(),
+    restore: vi.fn(),
+    translate: vi.fn(),
+    rotate: vi.fn(),
+    scale: vi.fn(),
 
     // canvas reference (some libs read ctx.canvas.width / height)
     canvas: { width, height },

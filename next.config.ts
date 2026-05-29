@@ -9,7 +9,7 @@ const nextConfig: NextConfig = {
     };
     return config;
   },
-  // Serve WASM files with correct headers
+  // Serve WASM files with correct headers and enable SharedArrayBuffer for FFmpeg
   async headers() {
     return [
       {
@@ -18,6 +18,9 @@ const nextConfig: NextConfig = {
           { key: "Content-Type", value: "application/wasm" },
         ],
       },
+      // Note: FFmpeg.wasm in single-threaded mode does NOT need
+      // SharedArrayBuffer / COOP / COEP headers. Removing them
+      // avoids blocking cross-origin CDN resources.
     ];
   },
 };

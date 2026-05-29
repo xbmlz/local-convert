@@ -57,7 +57,7 @@ export function DocConverterPage() {
       await navigator.clipboard.writeText(outputContent)
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
-    } catch {}
+    } catch { }
   }, [outputContent])
 
   const getLabel = (fmt: string) => {
@@ -70,15 +70,17 @@ export function DocConverterPage() {
     return (
       <div
         className="flex items-center justify-center px-4"
-        style={{ minHeight: "calc(100dvh - 3.5rem - 2.25rem)" }}
+        style={{
+          minHeight:
+            "calc(100dvh - var(--header-height, 4rem) - var(--footer-height, 3rem))",
+        }}
       >
         <div className="w-full max-w-xl">
           <div
-            className={`border-2 border-dashed rounded-2xl p-16 text-center cursor-pointer transition-all duration-200 select-none ${
-              dragOver
+            className={`border-2 border-dashed rounded-2xl p-16 text-center cursor-pointer transition-all duration-200 select-none ${dragOver
                 ? "border-primary bg-primary/5 scale-[1.01]"
                 : "border-border hover:border-primary hover:bg-primary/5"
-            }`}
+              }`}
             onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
             onDragLeave={() => setDragOver(false)}
             onDrop={onDrop}

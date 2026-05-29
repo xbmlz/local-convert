@@ -1,4 +1,5 @@
 import type { Metadata } from "next"
+import { Analytics } from "@vercel/analytics/next"
 import { ThemeProvider } from "@/components/theme-provider"
 import { I18nProvider } from "@/lib/i18n-context"
 import { Header } from "@/components/header"
@@ -122,6 +123,7 @@ export default function RootLayout({
             </div>
           </I18nProvider>
         </ThemeProvider>
+        <Analytics />
       </body>
     </html>
   )

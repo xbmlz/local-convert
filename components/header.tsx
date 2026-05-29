@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation"
 import { Moon, Sun, Github } from "lucide-react"
 import { useTheme } from "next-themes"
 import { useI18n } from "@/lib/i18n-context"
+import { CommentButton } from "@/components/comment-drawer"
 
 const NAV_ITEMS = [
   { href: "/img", labelKey: "nav.image" },
@@ -63,6 +64,7 @@ export function Header() {
             <Moon className="absolute size-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
             <span className="sr-only">{t("nav.toggleTheme")}</span>
           </button>
+          <CommentButton />
           <a
             href="https://github.com/xbmlz/local-convert"
             target="_blank"

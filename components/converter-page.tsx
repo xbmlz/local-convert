@@ -7,6 +7,7 @@ import { useConverter } from "@/hooks/use-converter"
 import { DropZone } from "@/components/drop-zone"
 import { PreviewCard } from "@/components/preview-card"
 import { ControlsBar } from "@/components/controls-bar"
+import { CropOverlay } from "@/components/crop-overlay"
 
 export function ConverterPage() {
   const { t } = useI18n()
@@ -23,6 +24,30 @@ export function ConverterPage() {
     saving,
     originalType,
     originalPreviewable,
+    // Image dimensions
+    imageWidth,
+    imageHeight,
+    // Resize
+    resizeEnabled,
+    setResizeEnabled,
+    resizeWidth,
+    resizeHeight,
+    resizeMode,
+    setResizeMode,
+    keepAspect,
+    setKeepAspect,
+    handleResizeWidthChange,
+    handleResizeHeightChange,
+    // Crop
+    cropEnabled,
+    cropRatio,
+    setCropRatio,
+    showCropOverlay,
+    setShowCropOverlay,
+    handleCropApply,
+    handleCropCancel,
+    handleCropReset,
+    // Actions
     setFormat,
     setQuality,
     loadFile,
@@ -134,7 +159,38 @@ export function ConverterPage() {
         onFormatChange={setFormat}
         onQualityChange={setQuality}
         onDownload={download}
+        // Resize
+        imageWidth={imageWidth}
+        imageHeight={imageHeight}
+        resizeEnabled={resizeEnabled}
+        onResizeEnabledChange={setResizeEnabled}
+        resizeWidth={resizeWidth}
+        resizeHeight={resizeHeight}
+        resizeMode={resizeMode}
+        onResizeModeChange={setResizeMode}
+        keepAspect={keepAspect}
+        onKeepAspectChange={setKeepAspect}
+        onResizeWidthChange={handleResizeWidthChange}
+        onResizeHeightChange={handleResizeHeightChange}
+        // Crop
+        cropEnabled={cropEnabled}
+        cropRatio={cropRatio}
+        onCropClick={() => setShowCropOverlay(true)}
+        onCropReset={handleCropReset}
       />
+
+      {/* Crop overlay */}
+      {showCropOverlay && originalUrl && (
+        <CropOverlay
+          imageUrl={originalUrl}
+          imageWidth={imageWidth}
+          imageHeight={imageHeight}
+          cropRatio={cropRatio}
+          onRatioChange={setCropRatio}
+          onApply={handleCropApply}
+          onCancel={handleCropCancel}
+        />
+      )}
 
       {/* Full-page drag overlay */}
       {dragOver && (

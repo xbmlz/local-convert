@@ -65,6 +65,26 @@
     "download": "下载 {format}",
     "conversionFailed": "转换失败"
   },
+  "resize": {
+    "title": "调整尺寸",
+    "width": "宽度",
+    "height": "高度",
+    "percent": "百分比",
+    "pixels": "像素",
+    "keepAspect": "保持纵横比",
+    "originalSize": "原始尺寸"
+  },
+  "crop": {
+    "title": "裁剪",
+    "free": "自由",
+    "square": "1:1",
+    "portrait": "3:4",
+    "landscape": "4:3",
+    "wide": "16:9",
+    "apply": "应用",
+    "cancel": "取消",
+    "reset": "重置"
+  },
   "preview": {
     "converting": "转换中…",
     "notPreviewable": "此格式无法预览"

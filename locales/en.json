@@ -65,6 +65,26 @@
     "download": "Download {format}",
     "conversionFailed": "Conversion failed"
   },
+  "resize": {
+    "title": "Resize",
+    "width": "Width",
+    "height": "Height",
+    "percent": "Percent",
+    "pixels": "Pixels",
+    "keepAspect": "Keep aspect ratio",
+    "originalSize": "Original"
+  },
+  "crop": {
+    "title": "Crop",
+    "free": "Free",
+    "square": "1:1",
+    "portrait": "3:4",
+    "landscape": "4:3",
+    "wide": "16:9",
+    "apply": "Apply",
+    "cancel": "Cancel",
+    "reset": "Reset"
+  },
   "preview": {
     "converting": "Converting…",
     "notPreviewable": "Preview not available for this format"

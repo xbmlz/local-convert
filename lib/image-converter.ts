@@ -156,22 +156,79 @@ function loadImg(file: File): Promise<HTMLImageElement> {
   })
 }
 
+export interface CropArea {
+  x: number
+  y: number
+  width: number
+  height: number
+}
+
+export interface ResizeOptions {
+  width?: number
+  height?: number
+  mode: "percent" | "pixels"
+  keepAspect: boolean
+}
+
+export interface ImageTransformOptions {
+  resize?: ResizeOptions
+  crop?: CropArea
+}
+
 export async function convertImage(
   file: File,
   format: OutputFormat,
-  quality: number
+  quality: number,
+  transform?: ImageTransformOptions
 ): Promise<Blob> {
   const img = await loadImg(file)
+
+  // Determine source region (crop)
+  let sx = 0, sy = 0, sw = img.naturalWidth, sh = img.naturalHeight
+  if (transform?.crop) {
+    const c = transform.crop
+    sx = Math.round(c.x)
+    sy = Math.round(c.y)
+    sw = Math.round(c.width)
+    sh = Math.round(c.height)
+  }
+
+  // Determine output dimensions (resize)
+  let dw = sw, dh = sh
+  if (transform?.resize) {
+    const r = transform.resize
+    if (r.mode === "percent") {
+      const scale = (r.width ?? 100) / 100
+      dw = Math.round(sw * scale)
+      dh = r.keepAspect ? Math.round(sh * scale) : Math.round(sh * ((r.height ?? 100) / 100))
+    } else {
+      if (r.width && r.height && !r.keepAspect) {
+        dw = r.width
+        dh = r.height
+      } else if (r.width) {
+        dw = r.width
+        dh = r.keepAspect ? Math.round(sh * (r.width / sw)) : (r.height ?? sh)
+      } else if (r.height) {
+        dh = r.height
+        dw = r.keepAspect ? Math.round(sw * (r.height / sh)) : (r.width ?? sw)
+      }
+    }
+  }
+
+  // Ensure minimum dimensions
+  dw = Math.max(1, dw)
+  dh = Math.max(1, dh)
+
   const canvas = document.createElement("canvas")
-  canvas.width = img.naturalWidth
-  canvas.height = img.naturalHeight
+  canvas.width = dw
+  canvas.height = dh
   const ctx = canvas.getContext("2d")!
 
   if (format === "jpeg") {
     ctx.fillStyle = "#ffffff"
-    ctx.fillRect(0, 0, canvas.width, canvas.height)
+    ctx.fillRect(0, 0, dw, dh)
   }
-  ctx.drawImage(img, 0, 0)
+  ctx.drawImage(img, sx, sy, sw, sh, 0, 0, dw, dh)
 
   const mime = format === "jpeg" ? "image/jpeg" : `image/${format}`
   const q = format === "png" ? undefined : quality / 100
@@ -186,6 +243,14 @@ export async function convertImage(
       q
     )
   )
+}
+
+/** Get the natural dimensions of an image file (after decode) */
+export async function getImageDimensions(
+  file: File
+): Promise<{ width: number; height: number }> {
+  const img = await loadImg(file)
+  return { width: img.naturalWidth, height: img.naturalHeight }
 }
 
 export async function isFormatSupported(format: OutputFormat): Promise<boolean> {
